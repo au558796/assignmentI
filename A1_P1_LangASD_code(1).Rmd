@@ -151,8 +151,9 @@ Tip: the final dataset should have as many rows as the the old one.
 
 ```{r}
 #only first visit data
-new_df = subset(df, VISIT==1)
-df = merge(df, new_df)
+new_df = subset(df[,c(1,7:9)], df$VISIT == "1")
+df = subset(df, select = -c(ADOS, MullenRaw, ExpressiveLangRaw))
+df = merge(df, new_df, all = T)
 ```
 
 Now, we are almost ready to actually start working with the data. However, here are some additional finishing touches:
@@ -166,15 +167,16 @@ Tip: as.numeric() might be a useful function, but not alone.
 Tip: Google "how to rename levels in R".
 
 ```{r}
-
-
+anon = c(df$SUBJ)
+anon.factor = factor(anon)
+df$SUBJ = as.numeric(anon.factor)
 ```
 
 
 Save the data set using into a csv file. Hint: look into write.csv()
 
 ```{r}
-
+write.csv(df, file = "df.csv")
 ```
 
 
