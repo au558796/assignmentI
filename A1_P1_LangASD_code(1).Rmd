@@ -47,6 +47,7 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
+#upload data
 demo_train = read.csv("demo_train.csv")
 lu_train = read.csv("LU_train.csv")
 token_train = read.csv("token_train.csv")
@@ -76,7 +77,10 @@ demo_train = rename(demo_train, c("Child.ID"="SUBJ", "Visit"="VISIT"))
 Tip: There is a package called stringr, which will be very handy for you also in future assignments. We will return to this package later, but for now use the str_extract () to extract only the number from the variable Visit in each data set. Tip: type ?str_extract() after loading the library, for examples of how to use it.
 
 ```{r}
-
+library(stringr)
+#lets extract the digits from the column
+lu_train$VISIT = str_extract(lu_train$VISIT, "\\d")
+token_train$VISIT = str_extract(token_train$VISIT, "\\d")
 
 ```
 
@@ -92,9 +96,10 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 
 
 ```{r}
-#merge all three dataframes into one big one, worry bout columns later
-df = merge(demo_train,lu_train)
-df = merge(df, token_train)
+#take out '.' in values
+lu_train$SUBJ = gsub("\\.","",lu_train$SUBJ)
+token_train$SUBJ = gsub("\\.","",token_train$SUBJ)
+demo_train$SUBJ = gsub("\\.","",demo_train$SUBJ)
 ```
 
 2d. Now that the nitty gritty details of the different data sets are fixed, we want to make a subset of each data set only containig the variables that we wish to use in the final data set.
@@ -112,8 +117,14 @@ The variables we need are: Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, A
 It would be smart to rename the MullenRaw and ExpressiveLangRaw into something you can remember (i.e. nonVerbalIQ, verbalIQ)
 
 ```{r}
+#index certain columns into new dataframe
+library(dplyr)
 
+demo_df = select(demo_train, SUBJ, VISIT, Ethnicity,Diagnosis,Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw)
 
+lu_df = select(lu_train, SUBJ, VISIT, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd)
+
+token_df = select(token_train,SUBJ, VISIT, types_MOT, types_CHI, tokens_CHI, tokens_MOT)
 ```
 
 2e. Finally we are ready to merge all the data sets into just one. 
@@ -123,12 +134,14 @@ Tip: Merge only works for two data frames at the time.
 Tip: Check the number of observations in the datasets before and after merging. What is going on?
 
 ```{r}
-
+#merge all three dataframes into one big one, worry bout columns later
+df = merge(demo_df,lu_df)
+df = merge(df, token_df)
 ```
 
 Are we done yet?
 
-If you look at the data set now, you'll se a lot of NA's in the variables ADOS, nonVerbalIQ (MullenRaw) and verbalIQ (ExpressiveLangRaw). These measures were not taken at all visits. Additionally, we only want these measures for the first visit (Riccardo will explain why in class).
+If you look at the data set now, you'll see a lot of NA's in the variables ADOS, nonVerbalIQ (MullenRaw) and verbalIQ (ExpressiveLangRaw). These measures were not taken at all visits. Additionally, we only want these measures for the first visit (Riccardo will explain why in class).
 So let's make sure that we select only these variables as collected during the first visit for each child and repeat these values throughout all other visits.
 
 Tip: one solution requires you to select only the rows corresponding to visit 1 in a new dataset, to rename the columns of the relevant variables and to merge it back to the old dataset.
@@ -137,7 +150,9 @@ Tip: the final dataset should have as many rows as the the old one.
 
 
 ```{r}
-
+#only first visit data
+new_df = subset(df, VISIT==1)
+df = merge(df, new_df)
 ```
 
 Now, we are almost ready to actually start working with the data. However, here are some additional finishing touches:
