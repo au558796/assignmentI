@@ -38,6 +38,7 @@ N.B. Create a GitHub repository for the Language Development in ASD set of assig
 Set the working directory (the directory with your data and code for these assignments):
 
 ```{r}
+#preamble
 setwd("C:/Users/Dana/Desktop/METHODS III/assignmentI")
 ```
 
@@ -69,8 +70,8 @@ Tip: Look into the package data.table, or google "how to rename variables in R"
 
 ```{r}
 #lets rename the columns
-library(plyr)
-demo_train = rename(demo_train, c("Child.ID"="SUBJ", "Visit"="VISIT"))
+library(plyr, dplyr)
+demo_train = plyr::rename(demo_train, c("Child.ID"="SUBJ", "Visit"="VISIT"))
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported. If you look into the original data sets, you will see that in the LU data and the Token data, Visits are called "visit 1" in stead of just 1 (which is the case in the demographic data set).
@@ -134,9 +135,9 @@ Tip: Merge only works for two data frames at the time.
 Tip: Check the number of observations in the datasets before and after merging. What is going on?
 
 ```{r}
-#merge all three dataframes into one big one, worry bout columns later
-df = merge(demo_df,lu_df)
-df = merge(df, token_df)
+#merge all three dataframes into one big one
+df = merge(demo_df,lu_df, all = T)
+df = merge(df, token_df, all = T)
 ```
 
 Are we done yet?
@@ -167,9 +168,14 @@ Tip: as.numeric() might be a useful function, but not alone.
 Tip: Google "how to rename levels in R".
 
 ```{r}
+#make characters in SUBJ into numbers to anonimize
 anon = c(df$SUBJ)
 anon.factor = factor(anon)
 df$SUBJ = as.numeric(anon.factor)
+
+#change gender and diagnosis into something more intiuitive
+df$Gender= revalue(as.factor(df$Gender), c("1"="F", "2"="M"))
+df$Diagnosis = revalue(as.factor(df$Diagnosis), c("A"="ASD", "B"="TD"))
 ```
 
 
@@ -192,8 +198,26 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes to solve this
 
 ```{r}
+#1
+one=group_by(df, SUBJ) %>%
+ summarise_each(funs(mean(., na.rm = TRUE)), CHI_MLU)
+one = filter(one, CHI_MLU > 2.7)
 
+#2
+two = filter(df, df$CHI_MLU<1.5 & df$VISIT == 1)
 
+#3
+#sort by subject
+#count amount of visits per subject
+  tree = c()
+  for (i in unique(df$SUBJ)){
+    if (sum(df$VISIT[df$SUBJ == i])<21){
+      tree = c(tree, i )
+  }}
+    
+#append names with < 6
+tree
+#doesn't use filter or pipes but oh well???
 ```
 
 
@@ -203,8 +227,11 @@ USING ARRANGE
 2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
 
 ```{r}
-
-
+#1
+df$VISIT = as.numeric(df$VISIT)
+en = arrange(df, desc(VISIT), desc(tokens_CHI)) #desc() decending order 
+#2
+to = arrange(df, VISIT, tokens_CHI)
 ```
 
 USING SELECT
@@ -213,7 +240,13 @@ USING SELECT
 2. What happens if you include the name of a variable multiple times in a select() call?
 
 ```{r}
+#1
+uno = select(df, Diagnosis, CHI_MLU, tokens_CHI)
+uno = filter(uno, df$Diagnosis=='ASD')
 
+#2
+dos = select(df, SUBJ, SUBJ)
+#nothing?
 ```
 
 
@@ -223,6 +256,10 @@ USING MUTATE, SUMMARISE and PIPES
 3. The solution to task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
 
 ```{r}
-
-
+#1
+une = summarise(group_by(df, SUBJ), mean(tokens_CHI, na.rm = TRUE))
+df = merge(df, une, all=T)
+df$`mean(tokens_CHI, na.rm = TRUE)`
+df$chi_toke_mean=df$`mean(tokens_CHI, na.rm = TRUE)`
+df$`mean(tokens_CHI, na.rm = TRUE)`=NULL
 ```
