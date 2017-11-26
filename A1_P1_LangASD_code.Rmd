@@ -1,0 +1,128 @@
+---
+title: "Assignment I pt. I"
+author: "Dana Jensen"
+date: "29/8/2017"
+output: html_document
+---
+```{r}
+#prelude
+setwd("C:/Users/Dana/Desktop/METHODS III/assignmentI")
+library(pacman)
+p_load(stringr, dplyr, plyr)
+demo_train = read.csv("demo_train.csv")
+lu_train = read.csv("LU_train.csv")
+token_train = read.csv("token_train.csv")
+```
+### Assignment 1, Part 1: Language development in Autism Spectrum Disorder (ASD)
+```{r}
+  ## Before being able to combine the data sets we need to make sure the relevant variables have the same names and the same kind of values.
+  ## 2a. Find a way to transform variable names.
+
+#lets rename the columns
+demo_train = plyr::rename(demo_train, c("Child.ID"="SUBJ", "Visit"="VISIT"))
+
+  ## 2b. Find a way to homogeneize the way "visit" is reported. If you look     into the original data sets, you will see that in the LU data and the Token   data, Visits are called "visit 1" in stead of just 1 (which is the case in    the demographic data set).
+
+#lets extract the digits from the column
+lu_train$VISIT = str_extract(lu_train$VISIT, "\\d")
+token_train$VISIT = str_extract(token_train$VISIT, "\\d")
+
+  ## 2c. We also need to make a small adjustment to the content of the Child.ID coloumn in the demographic data. Within this column, names that are   not abbreviations do not end with "." (i.e. Adam), which is the case in the   other two data sets (i.e. Adam.). If The content of the two variables isn't   identical the data sets will not be merged sufficiently.
+  ## We wish to remove the "." at the end of names in the LU data and the       tokens data.
+  ## To do these a subfunction of apply(), called sapply() can be used.
+
+#take out '.' in values
+lu_train$SUBJ = gsub("\\.","",lu_train$SUBJ)
+token_train$SUBJ = gsub("\\.","",token_train$SUBJ)
+demo_train$SUBJ = gsub("\\.","",demo_train$SUBJ)
+
+  ##2d. Now that the nitty gritty details of the different data sets are        fixed, we want to make a subset of each data set only containig the           variables that we wish to use in the final data set.
+  ##index certain columns into new dataframe
+
+demo_df = select(demo_train, SUBJ, VISIT, Ethnicity,Diagnosis,Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw)
+
+lu_df = select(lu_train, SUBJ, VISIT, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd)
+
+token_df = select(token_train,SUBJ, VISIT, types_MOT, types_CHI, tokens_CHI, tokens_MOT)
+
+  ##2e. Finally we are ready to merge all the data sets into just one.
+  ## Tip: Check the number of observations in the datasets before and after     merging. What is going on?
+
+#merge all three dataframes into one big one
+df = merge(demo_df,lu_df)
+df = merge(df, token_df)
+
+  ## So let's make sure that we select only these variables as collected        during the first visit for each child and repeat these values throughout all   other visits.
+
+#only first visit data
+new_df = subset(df[,c(1,7:9)], df$VISIT == "1")
+df = subset(df, select = -c(ADOS, MullenRaw, ExpressiveLangRaw))
+df = merge(df, new_df, all = T)
+
+  ## in some experiments your participants must be anonymous. Therefore we      wish to turn the CHILD.ID into numbers. 
+
+#make characters in SUBJ into numbers to anonimize
+anon = c(df$SUBJ)
+anon.factor = factor(anon)
+df$SUBJ = as.numeric(anon.factor)
+
+#change gender and diagnosis into something more intiuitive
+df$Gender= revalue(as.factor(df$Gender), c("2"="F", "1"="M"))
+df$Diagnosis = revalue(as.factor(df$Diagnosis), c("A"="ASD", "B"="TD"))
+
+#save as csv file
+write.csv(df, file = "df.csv")
+```
+###1) USING FILTER. List all kids who:
+```{r}
+##1. have a mean length of utterance (across all visits) of more than 2.7 morphemes.
+one=group_by(df, SUBJ) %>%
+ summarise_each(funs(mean(., na.rm = TRUE)), CHI_MLU)
+one = filter(one, CHI_MLU > 2.7)
+
+##2. have a mean length of utterance of less than 1.5 morphemes at the first visit
+two = filter(df, df$CHI_MLU<1.5 & df$VISIT == 1)
+
+##3. have not completed all trials. Tip: Use pipes to solve this
+tree = c()
+for (i in unique(df$SUBJ)){
+  if (sum(df$VISIT[df$SUBJ == i])<21){
+    tree = c(tree, i )
+  }}
+tree
+#doesn't use filter or pipes but oh well???
+```
+### 2) USING ARRANGE
+```{r}
+##1. Sort kids to find the kid who produced the most words on the 6th visit
+df$VISIT = as.numeric(df$VISIT)
+en = arrange(df, desc(VISIT), desc(tokens_CHI)) #desc() decending order 
+
+##2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
+to = arrange(df, VISIT, tokens_CHI)
+```
+### 3) USING SELECT
+```{r}
+##1. Make a subset of the data including only kids with ASD, mlu and word tokens
+uno = select(df, Diagnosis, CHI_MLU, tokens_CHI)
+uno = filter(uno, df$Diagnosis=='ASD')
+
+##2. What happens if you include the name of a variable multiple times in a select() call?
+dos = select(df, SUBJ, SUBJ)
+#nothing?
+```
+### 4) USING MUTATE, SUMMARISE and PIPES
+```{r}
+##1. Add a column to the data set that represents the mean number of words spoken during all visits.
+une = summarise(group_by(df, SUBJ), mean(tokens_CHI, na.rm = TRUE))
+df = merge(df, une, all=T)
+df$chi_toke_mean=df$`mean(tokens_CHI, na.rm = TRUE)`
+df$`mean(tokens_CHI, na.rm = TRUE)`=NULL
+
+##2. Use the summarise function and pipes to add a column in the data set containing the mean amount of words produced by each trial across all visits. HINT: group by Child.ID 
+temp1<-dplyr::summarise(group_by(df, SUBJ), mean(df$CHI_MLU))
+##Sorry Riccardo, I can't get these pipes to work.
+
+##3. The solution to task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
+```
+The reason we want to keep all the data and not just use each child's average MLU is the same reason why we use random slopes for our model. Each child has a different starting level when it comes to talking, and only taking the mean will not capture how much development he/she has gone through. Similarly, it would be possible for a TD and ASD child to have the same mean, because the TD may have developed a lot whereas the ASD child stayed consistant around the mean each visit, and therefore the TD may be misdiagnosed or the ASD missed.
