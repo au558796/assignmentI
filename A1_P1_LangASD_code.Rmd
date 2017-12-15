@@ -4,6 +4,9 @@ author: "Dana Jensen"
 date: "29/8/2017"
 output: html_document
 ---
+---
+                          "COMPLETE"
+---
 ```{r}
 #prelude
 setwd("C:/Users/Dana/Desktop/METHODS III/assignmentI")
@@ -105,7 +108,7 @@ to = arrange(df, VISIT, tokens_CHI)
 ```{r}
 ##1. Make a subset of the data including only kids with ASD, mlu and word tokens
 uno = select(df, Diagnosis, CHI_MLU, tokens_CHI)
-uno = filter(uno, df$Diagnosis=='ASD')
+uno = filter(uno, uno$Diagnosis=='ASD')
 
 ##2. What happens if you include the name of a variable multiple times in a select() call?
 dos = select(df, SUBJ, SUBJ)
